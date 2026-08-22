@@ -1,0 +1,15 @@
+# build output
+/crashwriter
+*.test
+
+# scratch databases
+/tmp/
+*.sst
+*.log
+MANIFEST-*
+CURRENT
+
+# accidental build artifact, cleaned up
+strata.tar.gz
+strata-repo.tar.gz
+*.tar.gz
