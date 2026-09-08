@@ -1,4 +1,4 @@
-.PHONY: build test test-race vet bench clean
+.PHONY: build test test-race vet bench clean server docker-build docker-run
 
 build:
 	go build ./...
@@ -14,6 +14,15 @@ vet:
 
 bench:
 	go test -bench . -benchmem -run '^$$' ./...
+
+server:
+	go run ./cmd/server
+
+docker-build:
+	docker build -t strata-server .
+
+docker-run:
+	docker compose up --build
 
 clean:
 	rm -f server crashwriter
