@@ -1,5 +1,9 @@
 # strata
 
+[![CI](https://github.com/ramkirangaruda/strata/actions/workflows/ci.yml/badge.svg)](https://github.com/ramkirangaruda/strata/actions/workflows/ci.yml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/ramkirangaruda/strata.svg)](https://pkg.go.dev/github.com/ramkirangaruda/strata)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 An LSM-tree storage engine in Go, built from scratch — write-ahead log, sorted
 string tables with bloom filters, MVCC through sequence numbers, and crash
 recovery.
