@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 )
@@ -72,7 +73,22 @@ func parseFileName(name string) (uint64, fileKind) {
 // own writeback. Without this call a crash can leave a perfectly durable file
 // that no longer appears in any directory -- which, for a table the manifest
 // now references, means the database will not open.
+//
+// Windows has no equivalent of this call, and pretending otherwise is worse
+// than admitting it. FlushFileBuffers on a directory handle returns
+// ACCESS_DENIED -- Windows simply does not expose directory-entry durability
+// as a syncable operation the way POSIX does. Rather than fail every Open on
+// Windows for a guarantee the platform cannot give, this is a deliberate
+// no-op there. That is a real gap against docs/DESIGN.md section 4, which
+// describes POSIX behavior: on Windows a crash at exactly the wrong instant
+// could in principle leave a durable file with no durable directory entry.
+// Recorded here rather than hidden, since a silently platform-dependent
+// durability guarantee is exactly the kind of thing this engine's tests
+// exist to catch.
 func syncDir(dir string) error {
+	if runtime.GOOS == "windows" {
+		return nil
+	}
 	f, err := os.Open(dir)
 	if err != nil {
 		return err
