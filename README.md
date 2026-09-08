@@ -19,6 +19,38 @@ go test -race ./...    # the concurrency and crash tests want this
 go test -v -run Kill   # the kill -9 durability test, on its own
 ```
 
+## Using it
+
+As a library:
+
+```go
+db, err := strata.Open("/path/to/dir", strata.Options{})
+if err != nil {
+    log.Fatal(err)
+}
+defer db.Close()
+
+db.Put([]byte("key"), []byte("value"))
+v, err := db.Get([]byte("key"))
+```
+
+See [`examples/basic`](examples/basic) for a complete, runnable version, and
+[`docs/DESIGN.md`](docs/DESIGN.md) for what the guarantees behind `Put`,
+`Get`, and `Options.Sync` actually are.
+
+There's also a small HTTP server (`cmd/server`) wrapping the engine as a
+`GET/PUT/DELETE /kv/{key}` API, mainly so there's something to deploy and
+curl rather than just read:
+
+```bash
+go run ./cmd/server                         # listens on :8080
+curl -X PUT --data 'world' localhost:8080/kv/hello
+curl localhost:8080/kv/hello                # -> world
+```
+
+See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for deploying it (Vercel,
+Docker, or anywhere else) and the honest tradeoffs of each.
+
 ## Reading order
 
 The packages depend on each other in roughly this order, and reading them in it
