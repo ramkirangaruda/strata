@@ -1,0 +1,10 @@
+.git
+.github
+data
+*.sst
+*.log
+MANIFEST-*
+CURRENT
+*.tar.gz
+docs
+README.md
