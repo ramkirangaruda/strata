@@ -36,6 +36,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"sort"
 	"sync"
 
@@ -660,7 +661,7 @@ func (db *DB) removeObsoleteFiles() error {
 			remove = true
 		}
 		if remove {
-			os.Remove(db.dir + string(os.PathSeparator) + e.Name())
+			os.Remove(filepath.Join(db.dir, e.Name()))
 		}
 	}
 	return nil
