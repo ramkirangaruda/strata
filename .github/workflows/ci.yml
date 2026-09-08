@@ -24,3 +24,18 @@ jobs:
 
       - name: Test
         run: go test ./...
+
+  race:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+
+      # The concurrency and crash-recovery tests are the ones that matter
+      # here - the skiplist's lock-free reads and the kill -9 harness are
+      # exactly what -race exists to catch.
+      - name: Test with race detector
+        run: go test -race ./...
