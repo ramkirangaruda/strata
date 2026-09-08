@@ -13,3 +13,12 @@ CURRENT
 strata.tar.gz
 strata-repo.tar.gz
 *.tar.gz
+
+# demo server
+/server
+/bin/
+/data/
+.env
+
+# local docker volumes
+/.docker-data/
