@@ -1,0 +1,13 @@
+services:
+  strata:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      STRATA_DATA_DIR: /data
+      STRATA_SYNC: "true"
+    volumes:
+      - strata-data:/data
+
+volumes:
+  strata-data:
