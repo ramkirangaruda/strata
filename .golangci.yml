@@ -1,0 +1,15 @@
+run:
+  timeout: 3m
+
+linters:
+  enable:
+    - govet
+    - errcheck
+    - staticcheck
+    - unused
+    - ineffassign
+    - gofmt
+
+issues:
+  exclude-dirs:
+    - docs
