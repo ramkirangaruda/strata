@@ -76,11 +76,28 @@ func TestPutOverwrite(t *testing.T) {
 	}
 }
 
-func TestIndex(t *testing.T) {
+func TestHome(t *testing.T) {
 	h := testServer(t).routes()
 	rec := do(t, h, http.MethodGet, "/", "")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	if ct := rec.Header().Get("Content-Type"); !strings.Contains(ct, "text/html") {
+		t.Fatalf("Content-Type = %q, want text/html", ct)
+	}
+	if !strings.Contains(rec.Body.String(), "<title>") {
+		t.Fatalf("response does not look like the embedded frontend")
+	}
+}
+
+func TestAPIInfo(t *testing.T) {
+	h := testServer(t).routes()
+	rec := do(t, h, http.MethodGet, "/api", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	if ct := rec.Header().Get("Content-Type"); !strings.Contains(ct, "application/json") {
+		t.Fatalf("Content-Type = %q, want application/json", ct)
 	}
 }
 

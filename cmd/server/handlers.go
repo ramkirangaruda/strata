@@ -24,7 +24,9 @@ func writeError(w http.ResponseWriter, status int, msg string) {
 	writeJSON(w, status, map[string]string{"error": msg})
 }
 
-func (s *server) handleIndex(w http.ResponseWriter, r *http.Request) {
+// handleAPIInfo is the machine-readable counterpart to the frontend at "/" -
+// a quick reference for anyone hitting this with curl instead of a browser.
+func (s *server) handleAPIInfo(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"name":  "strata",
 		"phase": "A1 of 6 - write path, durability, recovery",
