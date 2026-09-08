@@ -51,6 +51,34 @@ curl localhost:8080/kv/hello                # -> world
 See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for deploying it (Vercel,
 Docker, or anywhere else) and the honest tradeoffs of each.
 
+## Architecture at a glance
+
+```
+        writes                                   reads
+          |                                         |
+          v                                         v
+   +-------------+                          consult, newest first
+   | WAL (fsync) |  durability                       |
+   +-------------+                                   v
+          |                                  +----------------+
+          v                                  |    memtable    |  in-memory, lock-free reads
+   +----------------+   flush (full)          +----------------+
+   |    memtable    | ----------------->      |  immutable L0  |  <- flushed SSTables
+   +----------------+                          |  SSTable(s)   |
+                                                +----------------+
+                                                        |
+                                          bloom filter -+- skip files that can't match
+                                                        v
+                                                answer, or ErrNotFound
+```
+
+Every write lands in the WAL before the memtable, so a crash between the two
+never loses an acknowledged write. Every read checks the memtable first, then
+level-0 tables newest-to-oldest, stopping at the first version it finds -
+which is correct because internal keys sort newest-first (`docs/DESIGN.md`
+§2). See `docs/DESIGN.md` for the full picture, including the six ordering
+rules that make crashes recoverable.
+
 ## Reading order
 
 The packages depend on each other in roughly this order, and reading them in it
