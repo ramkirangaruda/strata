@@ -53,6 +53,18 @@ and lets you run a container - Fly.io and Render both have free tiers that
 do, if you want a public URL with real durability behind it rather than
 Vercel's ephemeral `/tmp`.
 
+## Verifying a deployment
+
+After deploying anywhere - Vercel, Docker, wherever - run the smoke test
+against it:
+
+```bash
+./scripts/smoke.sh https://your-deployment-url
+```
+
+It puts a key, reads it back, deletes it, and confirms the delete stuck.
+Exits non-zero on the first thing that doesn't match.
+
 ## Configuration
 
 All of it is environment variables, read in `cmd/server/config.go`:
