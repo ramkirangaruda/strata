@@ -83,3 +83,25 @@ func TestIndex(t *testing.T) {
 		t.Fatalf("status = %d, want 200", rec.Code)
 	}
 }
+
+func TestPutTooLargeIsRejected(t *testing.T) {
+	h := testServer(t).routes()
+	oversized := strings.Repeat("x", maxValueSize+1)
+	rec := do(t, h, http.MethodPut, "/kv/big", oversized)
+	if rec.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("status = %d, want 413", rec.Code)
+	}
+	// The rejected write must not have landed - nothing to overwrite the
+	// missing key with.
+	if rec := do(t, h, http.MethodGet, "/kv/big", ""); rec.Code != http.StatusNotFound {
+		t.Fatalf("a rejected PUT should not have written anything: status = %d, want 404", rec.Code)
+	}
+}
+
+func TestUnknownRouteIs404(t *testing.T) {
+	h := testServer(t).routes()
+	rec := do(t, h, http.MethodGet, "/not-a-route", "")
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404", rec.Code)
+	}
+}
