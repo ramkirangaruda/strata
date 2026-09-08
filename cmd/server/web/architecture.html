@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>B-tree vs LSM-tree — strata</title>
+<meta name="description" content="Why strata is built as a log-structured merge-tree instead of a B-tree: write cost, read cost, and space cost, compared directly.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/site.css">
+</head>
+<body data-page="architecture">
+
+<nav class="top">
+  <div class="wrap row">
+    <a class="brand" href="/"><span class="mark"><i></i><i></i><i></i></span><b>strata</b></a>
+    <div class="pagenav">
+      <a href="/">Home</a>
+      <a href="/architecture" class="active">Architecture<span class="tag">B-tree vs LSM</span></a>
+      <a href="/postmortem">Postmortem<span class="tag">real bug</span></a>
+      <a href="/playground">Playground<span class="tag">live</span></a>
+    </div>
+    <div class="navside">
+      <span class="status" id="nav-status"><span class="dot"></span><span class="txt">checking</span></span>
+      <a class="gh" href="https://github.com/ramkirangaruda/strata" target="_blank" rel="noopener">GitHub</a>
+    </div>
+  </div>
+</nav>
+
+<header class="pagehead">
+  <div class="wrap">
+    <div class="kicker">The one tradeoff behind every decision here</div>
+    <h1>B-tree vs LSM-tree</h1>
+    <p class="lede">Most databases you've used — SQLite, Postgres, MySQL — update records in place with a B-tree. strata never does. Pick a side below and watch what each one actually does to a write.</p>
+  </div>
+</header>
+
+<section style="border-top:none;">
+  <div class="wrap">
+    <div class="vs reveal">
+      <button data-side="btree" class="on">B-TREE</button>
+      <span class="x">vs</span>
+      <button data-side="lsm">LSM-TREE</button>
+    </div>
+
+    <div class="compare reveal">
+      <div class="face on" data-side="btree">
+        <div class="livediagram">
+          <span class="caption">same node, overwritten in place</span>
+          <div class="bt-node" id="bt-node">key: 42</div>
+        </div>
+      </div>
+      <div class="face" data-side="lsm">
+        <div class="livediagram">
+          <span class="caption">append-only log, never rewritten</span>
+          <div class="lsm-log" id="lsm-log"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="facegrid" style="margin-top:20px;">
+      <div class="facecard">
+        <h3>B-tree</h3>
+        <ul>
+          <li><b>Update</b> mutates the record where it already sits on disk</li>
+          <li><b>Write</b> is random I/O — every insert can land on a different page</li>
+          <li><b>Read</b> is one predictable path — O(log n) down a single tree</li>
+          <li><b>Concurrency</b> needs locks or latches — readers and writers can collide on the same page</li>
+          <li>Used by SQLite, PostgreSQL, InnoDB</li>
+        </ul>
+      </div>
+      <div class="facecard">
+        <h3>LSM-tree</h3>
+        <ul>
+          <li><b>Update</b> appends a new version — the old record is never touched</li>
+          <li><b>Write</b> is sequential I/O — one log append, one memtable insert</li>
+          <li><b>Read</b> checks memory, then files newest-first, until it finds a match</li>
+          <li><b>Concurrency</b> is free — nothing a reader is looking at can be mutated under it</li>
+          <li>Used by RocksDB, Cassandra, LevelDB — and strata</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div class="k">There's no free lunch</div>
+      <h2>What each shape actually costs</h2>
+    </div>
+    <div class="tradeoff reveal">
+      <div class="t">
+        <div class="label">Write cost</div>
+        <div class="bar"><i style="width:85%; background:var(--coral);"></i></div>
+        <div class="bar"><i style="width:20%; background:var(--forest);"></i></div>
+        <small>B-tree pays random I/O per write. LSM turns it sequential.</small>
+      </div>
+      <div class="t">
+        <div class="label">Read cost</div>
+        <div class="bar"><i style="width:25%; background:var(--coral);"></i></div>
+        <div class="bar"><i style="width:55%; background:var(--forest);"></i></div>
+        <small>A key can live in several files. Bloom filters claw most of it back.</small>
+      </div>
+      <div class="t">
+        <div class="label">Space cost</div>
+        <div class="bar"><i style="width:20%; background:var(--coral);"></i></div>
+        <div class="bar"><i style="width:60%; background:var(--forest);"></i></div>
+        <small>Old versions and tombstones sit around until compaction — phase A3, not built yet.</small>
+      </div>
+    </div>
+    <p class="reveal" style="margin-top:22px; font-size:14.5px;">
+      Right shape when writes dominate and you want random writes turned sequential on disk — <b style="color:var(--text)">exactly the workload the playground generates.</b>
+      Wrong shape when you need bounded read latency with zero tuning; a B-tree wins there.
+    </p>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap foot-row">
+    <div class="foot-tag">strata — phase A1 of 6. Write path, durability, crash recovery. Zero dependencies.</div>
+    <div class="footlinks">
+      <a href="https://github.com/ramkirangaruda/strata" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/ramkirangaruda/strata/blob/main/docs/DESIGN.md" target="_blank" rel="noopener">Design doc</a>
+      <a href="https://github.com/ramkirangaruda/strata/blob/main/LICENSE" target="_blank" rel="noopener">MIT license</a>
+    </div>
+  </div>
+</footer>
+
+<script src="/static/site.js"></script>
+<script>
+  Site.initScrollReveal();
+
+  var btNode = document.getElementById("bt-node");
+  var lsmLog = document.getElementById("lsm-log");
+  var segCount = 0;
+
+  function flashBTree() {
+    btNode.classList.remove("flash");
+    void btNode.offsetWidth;
+    btNode.classList.add("flash");
+  }
+  function growLSM() {
+    if (Site.reducedMotion) return;
+    var seg = document.createElement("div");
+    seg.className = "seg";
+    lsmLog.appendChild(seg);
+    segCount++;
+    if (segCount > 12) { lsmLog.removeChild(lsmLog.firstChild); }
+  }
+
+  var loopTimer = null;
+  function startLoop(side) {
+    clearInterval(loopTimer);
+    if (Site.reducedMotion) return;
+    if (side === "btree") { flashBTree(); loopTimer = setInterval(flashBTree, 1400); }
+    else { growLSM(); loopTimer = setInterval(growLSM, 700); }
+  }
+
+  document.querySelectorAll(".vs button").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var side = btn.getAttribute("data-side");
+      document.querySelectorAll(".vs button").forEach(function (b) { b.classList.toggle("on", b === btn); });
+      document.querySelectorAll(".face").forEach(function (f) { f.classList.toggle("on", f.getAttribute("data-side") === side); });
+      startLoop(side);
+    });
+  });
+
+  startLoop("btree");
+</script>
+</body>
+</html>

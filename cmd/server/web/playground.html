@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Playground — strata</title>
+<meta name="description" content="PUT, GET, and DELETE against the real strata engine running this page, with the write and read paths animated as they happen.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/site.css">
+</head>
+<body data-page="playground">
+
+<nav class="top">
+  <div class="wrap row">
+    <a class="brand" href="/"><span class="mark"><i></i><i></i><i></i></span><b>strata</b></a>
+    <div class="pagenav">
+      <a href="/">Home</a>
+      <a href="/architecture">Architecture<span class="tag">B-tree vs LSM</span></a>
+      <a href="/postmortem">Postmortem<span class="tag">real bug</span></a>
+      <a href="/playground" class="active">Playground<span class="tag">live</span></a>
+    </div>
+    <div class="navside">
+      <span class="status" id="nav-status"><span class="dot"></span><span class="txt">checking</span></span>
+      <a class="gh" href="https://github.com/ramkirangaruda/strata" target="_blank" rel="noopener">GitHub</a>
+    </div>
+  </div>
+</nav>
+
+<header class="pagehead">
+  <div class="wrap">
+    <div class="kicker">This isn't a mockup</div>
+    <h1>Try it live</h1>
+    <p class="lede">Every button below hits <code>cmd/server</code>'s real API — a real write-ahead log, a real memtable, real bytes. Watch the path light up as each request lands.</p>
+  </div>
+</header>
+
+<section style="border-top:none;">
+  <div class="wrap">
+    <div class="flowline reveal" id="flowline">
+      <div class="track"></div>
+      <div class="node" style="left:6%;"><div class="dot"></div>request</div>
+      <div class="node" style="left:37%;"><div class="dot"></div>WAL append</div>
+      <div class="node" style="left:68%;"><div class="dot"></div>memtable</div>
+      <div class="node" style="left:94%;"><div class="dot"></div>response</div>
+    </div>
+
+    <div class="pg-shell reveal">
+      <div class="pg-panel">
+        <div class="field">
+          <label for="pg-key">Key</label>
+          <input id="pg-key" type="text" value="hello" spellcheck="false" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="pg-val">Value (used by PUT)</label>
+          <textarea id="pg-val" spellcheck="false">world</textarea>
+        </div>
+        <div class="btnrow">
+          <button class="op-btn put" data-op="PUT">PUT</button>
+          <button class="op-btn" data-op="GET">GET</button>
+          <button class="op-btn del" data-op="DELETE">DELETE</button>
+          <button class="op-btn demo" id="pg-demo" type="button">▶ run a quick demo</button>
+        </div>
+        <div class="pg-note">
+          <b>Heads up:</b> on serverless platforms like Vercel, this storage lives in an ephemeral <code>/tmp</code> and can reset on redeploy. Running locally or via Docker, it's the real, persistent thing.
+        </div>
+      </div>
+
+      <div class="pg-panel">
+        <div class="resp" id="pg-resp">
+          <div class="empty">Run an operation to see the real request and response here.</div>
+        </div>
+        <div class="pg-log">
+          <div class="lh">Session log</div>
+          <div id="pg-log-list"><div class="logempty" style="font-size:12.5px; color:var(--text-faint);">Nothing yet — this session's log lives only in your browser.</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap foot-row">
+    <div class="foot-tag">strata — phase A1 of 6. Write path, durability, crash recovery. Zero dependencies.</div>
+    <div class="footlinks">
+      <a href="https://github.com/ramkirangaruda/strata" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/ramkirangaruda/strata/blob/main/docs/DEPLOYMENT.md" target="_blank" rel="noopener">Deployment notes</a>
+      <a href="https://github.com/ramkirangaruda/strata/blob/main/LICENSE" target="_blank" rel="noopener">MIT license</a>
+    </div>
+  </div>
+</footer>
+
+<script src="/static/site.js"></script>
+<script>
+  Site.initScrollReveal();
+
+  var keyEl = document.getElementById("pg-key");
+  var valEl = document.getElementById("pg-val");
+  var respEl = document.getElementById("pg-resp");
+  var logEl = document.getElementById("pg-log-list");
+  var flowline = document.getElementById("flowline");
+  var logEntries = [];
+
+  function badgeClass(status) {
+    if (status >= 200 && status < 300) return "good";
+    if (status >= 400 && status < 500) return "warn";
+    return "bad";
+  }
+
+  function fireFlow(kind) {
+    if (Site.reducedMotion) return;
+    var p = document.createElement("div");
+    p.className = "packet " + kind;
+    flowline.appendChild(p);
+    requestAnimationFrame(function () { p.classList.add("go"); });
+    setTimeout(function () { flowline.removeChild(p); }, 1300);
+  }
+
+  function renderResponse(method, path, status, ms, bodyText, isJSON) {
+    var badge = '<span class="badge ' + badgeClass(status) + '">' + status + '</span>';
+    var body = bodyText && bodyText.length ? bodyText : "(empty body)";
+    if (isJSON) {
+      try { body = JSON.stringify(JSON.parse(bodyText), null, 2); } catch (e) {}
+    }
+    respEl.innerHTML =
+      '<div class="line1"><span class="req">' + method + ' ' + path + '</span>' + badge +
+      '<span class="lat">' + ms + ' ms</span></div>' +
+      '<pre>' + body.replace(/&/g, "&amp;").replace(/</g, "&lt;") + '</pre>';
+    respEl.classList.remove("flash-good", "flash-bad");
+    void respEl.offsetWidth;
+    respEl.classList.add(status >= 200 && status < 400 ? "flash-good" : "flash-bad");
+  }
+
+  function pushLog(method, key, status) {
+    logEntries.unshift({ method: method, key: key, status: status, t: new Date() });
+    logEntries = logEntries.slice(0, 25);
+    logEl.innerHTML = logEntries.map(function (e) {
+      var hh = e.t.toTimeString().slice(0, 8);
+      return '<div class="logitem"><span class="m ' + e.method + '">' + e.method + '</span>' +
+        '<span class="k">' + e.key.replace(/&/g, "&amp;").replace(/</g, "&lt;") + '</span>' +
+        '<span class="s">' + e.status + ' · ' + hh + '</span></div>';
+    }).join("");
+  }
+
+  function run(method) {
+    var key = keyEl.value.trim();
+    if (!key) { keyEl.focus(); return Promise.resolve(); }
+    var path = "/kv/" + encodeURIComponent(key);
+    var opts = { method: method };
+    if (method === "PUT") opts.body = valEl.value;
+    var kind = method === "PUT" ? "write" : method === "DELETE" ? "del" : "read";
+    fireFlow(kind);
+    var start = performance.now();
+    return fetch(path, opts).then(function (r) {
+      var ms = Math.round(performance.now() - start);
+      var ct = r.headers.get("content-type") || "";
+      return r.text().then(function (text) {
+        renderResponse(method, path, r.status, ms, text, ct.indexOf("json") !== -1);
+        pushLog(method, key, r.status);
+        return r.status;
+      });
+    }).catch(function (err) {
+      var ms = Math.round(performance.now() - start);
+      renderResponse(method, path, 0, ms, "request failed: " + err, false);
+      pushLog(method, key, "ERR");
+    });
+  }
+
+  document.querySelectorAll(".op-btn[data-op]").forEach(function (btn) {
+    btn.addEventListener("click", function () { run(btn.getAttribute("data-op")); });
+  });
+
+  document.getElementById("pg-demo").addEventListener("click", function () {
+    var demoKey = "demo-" + Math.floor(Math.random() * 100000);
+    keyEl.value = demoKey;
+    valEl.value = "hello from the live demo";
+    var btn = this;
+    btn.disabled = true; btn.textContent = "running…";
+    run("PUT")
+      .then(function () { return new Promise(function (res) { setTimeout(res, 500); }); })
+      .then(function () { return run("GET"); })
+      .then(function () { return new Promise(function (res) { setTimeout(res, 500); }); })
+      .then(function () { return run("DELETE"); })
+      .then(function () { return new Promise(function (res) { setTimeout(res, 400); }); })
+      .then(function () { return run("GET"); })
+      .then(function () { btn.disabled = false; btn.textContent = "▶ run a quick demo"; });
+  });
+</script>
+</body>
+</html>

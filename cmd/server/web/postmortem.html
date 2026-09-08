@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Postmortem: the Windows Open() bug — strata</title>
+<meta name="description" content="A real bug from this repo's history: strata.Open() failed on every Windows machine because of a directory-fsync assumption. Symptom, root cause, fix, and the diff.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/site.css">
+</head>
+<body data-page="postmortem">
+
+<nav class="top">
+  <div class="wrap row">
+    <a class="brand" href="/"><span class="mark"><i></i><i></i><i></i></span><b>strata</b></a>
+    <div class="pagenav">
+      <a href="/">Home</a>
+      <a href="/architecture">Architecture<span class="tag">B-tree vs LSM</span></a>
+      <a href="/postmortem" class="active">Postmortem<span class="tag">real bug</span></a>
+      <a href="/playground">Playground<span class="tag">live</span></a>
+    </div>
+    <div class="navside">
+      <span class="status" id="nav-status"><span class="dot"></span><span class="txt">checking</span></span>
+      <a class="gh" href="https://github.com/ramkirangaruda/strata" target="_blank" rel="noopener">GitHub</a>
+    </div>
+  </div>
+</nav>
+
+<header class="pagehead">
+  <div class="wrap">
+    <div class="kicker">Incident report — commit a2447a7</div>
+    <h1>The bug that broke every&nbsp;Open()</h1>
+    <p class="lede">Not a hypothetical. This shipped, was caught, and is fixed in this repo's history — <code>strata.Open()</code> failed on the first call, every time, on every Windows machine.</p>
+  </div>
+</header>
+
+<section style="border-top:none;">
+  <div class="wrap">
+    <div class="term reveal" id="term">
+      <div class="bar"><span></span><span></span><span></span></div>
+      <pre id="term-out"></pre>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div class="k">What happened</div>
+      <h2>Symptom → root cause → fix → tradeoff</h2>
+    </div>
+    <div class="timeline">
+      <div class="tl-item reveal">
+        <div class="k">01 — Symptom</div>
+        <h3>strata.Open() failed before doing anything else</h3>
+        <p>100% reproduction on Windows. Not a rare race, not a corrupted-file edge case — the very first call to <code>strata.Open()</code>, on an empty directory, returned an error. Nothing built on top of the engine could even start.</p>
+      </div>
+      <div class="tl-item reveal">
+        <div class="k">02 — Root cause</div>
+        <h3>Directory fsync doesn't exist on Windows</h3>
+        <p>After writing or renaming a file, strata calls <code>fsync</code> on its <b style="color:var(--text)">directory</b> too — a standard POSIX trick (see <code>docs/DESIGN.md §4</code>) so a crash can't leave a durable file with no durable directory entry pointing at it. Windows has no equivalent: <code>FlushFileBuffers</code> on a directory handle returns <code>ACCESS_DENIED</code>, full stop.</p>
+      </div>
+      <div class="tl-item reveal">
+        <div class="k">03 — The fix</div>
+        <h3>A 16-line, purely additive patch</h3>
+        <p>Skip the directory fsync when <code>runtime.GOOS == "windows"</code>. No change to behavior on Linux or macOS, where the guarantee still holds exactly as documented.</p>
+      </div>
+      <div class="tl-item reveal">
+        <div class="k">04 — The tradeoff, on the record</div>
+        <h3>A documented gap, not a hidden one</h3>
+        <p>On Windows, a crash at exactly the wrong instant could in principle leave a durable file with no durable directory entry. That's a real gap against the POSIX guarantee in <code>DESIGN.md §4</code> — written into the source comment rather than quietly ignored.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div class="k">files.go</div>
+      <h2>The actual diff</h2>
+    </div>
+    <div class="diff reveal" id="diff"></div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div class="k">While we're here</div>
+      <h2>A smaller one from the same week</h2>
+    </div>
+    <div class="card reveal" style="max-width:640px;">
+      <div class="icon" style="width:auto; padding:0 10px;">db.go</div>
+      <h3>Manual path concatenation instead of filepath.Join</h3>
+      <p><code>os.Remove(db.dir + string(os.PathSeparator) + e.Name())</code> happened to work, but it's not what <code>filepath.Join</code> is for — and every other path in the codebase already used it. Fixed in <code>cd9f1b9</code> for consistency, before it turned into a real cross-platform bug.</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap foot-row">
+    <div class="foot-tag">strata — phase A1 of 6. Write path, durability, crash recovery. Zero dependencies.</div>
+    <div class="footlinks">
+      <a href="https://github.com/ramkirangaruda/strata/commit/a2447a7" target="_blank" rel="noopener">View commit</a>
+      <a href="https://github.com/ramkirangaruda/strata/blob/main/docs/DESIGN.md" target="_blank" rel="noopener">Design doc</a>
+      <a href="https://github.com/ramkirangaruda/strata/blob/main/LICENSE" target="_blank" rel="noopener">MIT license</a>
+    </div>
+  </div>
+</footer>
+
+<script src="/static/site.js"></script>
+<script>
+  Site.initScrollReveal();
+  Site.initSpotlight(".card");
+
+  var lines = [
+    { t: "$ go run ./cmd/server", cls: "" },
+    { t: '{"level":"ERROR","msg":"failed to open database","dir":"./data","err":"sync data: Access is denied."}', cls: "" },
+    { t: "exit status 1", cls: "" },
+    { t: "", cls: "" },
+    { t: "$ # after a2447a7 — syncDir is a no-op on windows", cls: "" },
+    { t: "$ go run ./cmd/server", cls: "" },
+    { t: '{"level":"INFO","msg":"listening","addr":":8080","data_dir":"./data"}', cls: "" }
+  ];
+
+  var out = document.getElementById("term-out");
+  var typed = false;
+
+  function typeLines() {
+    if (typed) return;
+    typed = true;
+    if (Site.reducedMotion) {
+      out.textContent = lines.map(function (l) { return l.t; }).join("\n");
+      return;
+    }
+    var li = 0, ci = 0;
+    function step() {
+      if (li >= lines.length) { return; }
+      var line = lines[li].t;
+      if (ci <= line.length) {
+        var soFar = lines.slice(0, li).map(function (l) { return l.t; }).join("\n");
+        var prefix = soFar ? soFar + "\n" : "";
+        out.textContent = prefix + line.slice(0, ci);
+        ci++;
+        setTimeout(step, line.length ? 12 : 4);
+      } else {
+        li++; ci = 0;
+        setTimeout(step, 220);
+      }
+    }
+    step();
+  }
+
+  var termObs = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) { if (e.isIntersecting) typeLines(); });
+  }, { threshold: 0.4 });
+  termObs.observe(document.getElementById("term"));
+
+  var diffLines = [
+    { t: "@@ files.go: syncDir(dir string) error @@", cls: "ctx" },
+    { t: "+ if runtime.GOOS == \"windows\" {", cls: "add" },
+    { t: "+     // Windows has no directory-fsync equivalent;", cls: "add" },
+    { t: "+     // FlushFileBuffers on a dir handle returns ACCESS_DENIED.", cls: "add" },
+    { t: "+     return nil", cls: "add" },
+    { t: "+ }", cls: "add" },
+    { t: "  f, err := os.Open(dir)", cls: "ctx" },
+    { t: "  if err != nil {", cls: "ctx" },
+    { t: "      return err", cls: "ctx" },
+    { t: "  }", cls: "ctx" }
+  ];
+  var diffEl = document.getElementById("diff");
+  var diffBuilt = false;
+  function buildDiff() {
+    if (diffBuilt) return;
+    diffBuilt = true;
+    diffLines.forEach(function (l, i) {
+      var div = document.createElement("div");
+      div.className = "ln " + l.cls;
+      div.textContent = l.t;
+      div.style.animationDelay = (i * 0.07) + "s";
+      diffEl.appendChild(div);
+    });
+  }
+  var diffObs = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) { if (e.isIntersecting) buildDiff(); });
+  }, { threshold: 0.3 });
+  diffObs.observe(diffEl);
+</script>
+</body>
+</html>

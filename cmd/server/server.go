@@ -32,7 +32,11 @@ func (s *server) routes() http.Handler {
 	mux.HandleFunc("GET /kv/{key}", s.handleGet)
 	mux.HandleFunc("PUT /kv/{key}", s.handlePut)
 	mux.HandleFunc("DELETE /kv/{key}", s.handleDelete)
-	mux.HandleFunc("GET /{$}", s.handleHome)
+	mux.HandleFunc("GET /{$}", s.handlePage("index.html"))
+	mux.HandleFunc("GET /architecture", s.handlePage("architecture.html"))
+	mux.HandleFunc("GET /postmortem", s.handlePage("postmortem.html"))
+	mux.HandleFunc("GET /playground", s.handlePage("playground.html"))
+	mux.Handle("GET /static/", staticHandler())
 	mux.HandleFunc("GET /api", s.handleAPIInfo)
 	return s.withLogging(mux)
 }

@@ -7,367 +7,122 @@
 <meta name="description" content="strata is a log-structured merge-tree key-value engine built from scratch in Go — write-ahead log, sorted string tables, MVCC, and crash recovery. Try it live.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Manrope:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<style>
-:root{
-  color-scheme: dark;
-  --bg:#0c0a08; --surface:#151210; --surface-2:#1d1813; --border:#332b22;
-  --text:#f4efe6; --text-dim:#b6ab99; --text-faint:#7c7263;
-  --accent:#e3963f; --accent-strong:#f2ab5c; --accent-ink:#1c1108;
-  --good:#5fbf86; --warn:#d9a544; --bad:#e2694f;
-  --shadow: 0 20px 60px -20px rgba(0,0,0,.6);
-  --sans:"Manrope",-apple-system,"Segoe UI",sans-serif;
-  --display:"Sora",var(--sans);
-  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
-  --maxw:1120px;
-}
-@media (prefers-color-scheme: light){
-  :root:not([data-theme="dark"]){
-    color-scheme: light;
-    --bg:#faf7f1; --surface:#ffffff; --surface-2:#f2ece0; --border:#e3d9c7;
-    --text:#211c15; --text-dim:#6c6152; --text-faint:#948a78;
-    --accent:#b5651d; --accent-strong:#8f4f16; --accent-ink:#fff6ea;
-    --good:#2f7d51; --warn:#93690f; --bad:#a83f2c;
-    --shadow: 0 20px 50px -24px rgba(30,20,5,.25);
-  }
-}
-:root[data-theme="light"]{
-  color-scheme: light;
-  --bg:#faf7f1; --surface:#ffffff; --surface-2:#f2ece0; --border:#e3d9c7;
-  --text:#211c15; --text-dim:#6c6152; --text-faint:#948a78;
-  --accent:#b5651d; --accent-strong:#8f4f16; --accent-ink:#fff6ea;
-  --good:#2f7d51; --warn:#93690f; --bad:#a83f2c;
-  --shadow: 0 20px 50px -24px rgba(30,20,5,.25);
-}
-*{box-sizing:border-box;}
-html{scroll-behavior:smooth;}
-@media (prefers-reduced-motion: reduce){ html{scroll-behavior:auto;} *{animation-duration:.001ms !important; transition-duration:.001ms !important;} }
-body{
-  margin:0; background:var(--bg); color:var(--text); font-family:var(--sans);
-  line-height:1.6; font-size:16px; -webkit-font-smoothing:antialiased;
-}
-h1,h2,h3{ font-family:var(--display); font-weight:700; text-wrap:balance; margin:0; color:var(--text); }
-p{ margin:0; color:var(--text-dim); }
-a{ color:inherit; }
-code,.mono{ font-family:var(--mono); }
-::selection{ background:var(--accent); color:var(--accent-ink); }
-.wrap{ max-width:var(--maxw); margin:0 auto; padding:0 28px; }
-@media (max-width:640px){ .wrap{ padding:0 20px; } }
-.reveal{ opacity:0; transform:translateY(16px); transition:opacity .6s ease, transform .6s ease; }
-.reveal.in{ opacity:1; transform:none; }
-
-/* ---------- nav ---------- */
-nav.top{
-  position:sticky; top:0; z-index:50; backdrop-filter:blur(10px);
-  background:color-mix(in srgb, var(--bg) 78%, transparent);
-  border-bottom:1px solid var(--border);
-}
-nav.top .row{ display:flex; align-items:center; justify-content:space-between; height:64px; }
-.brand{ display:flex; align-items:center; gap:10px; text-decoration:none; }
-.brand .mark{ width:16px; height:16px; border-radius:3px; background:linear-gradient(135deg,var(--accent-strong),var(--accent)); flex:none; }
-.brand b{ font-family:var(--display); font-size:16px; letter-spacing:-0.01em; }
-.brand .phase{ font-family:var(--mono); font-size:10.5px; color:var(--text-faint); border:1px solid var(--border); border-radius:20px; padding:2px 8px; margin-left:2px; }
-.navlinks{ display:flex; align-items:center; gap:28px; }
-.navlinks a{ font-size:13.5px; color:var(--text-dim); text-decoration:none; font-weight:500; }
-.navlinks a:hover{ color:var(--text); }
-.navlinks .cta{ color:var(--text); border:1px solid var(--border); border-radius:8px; padding:7px 14px; font-size:13px; }
-.navlinks .cta:hover{ border-color:var(--accent); color:var(--accent-strong); }
-@media (max-width:760px){ .navlinks a:not(.cta):not(.status){ display:none; } }
-.status{ display:flex; align-items:center; gap:6px; font-family:var(--mono); font-size:11.5px; color:var(--text-faint); }
-.status .dot{ width:7px; height:7px; border-radius:50%; background:var(--text-faint); flex:none; }
-.status.online .dot{ background:var(--good); box-shadow:0 0 0 3px color-mix(in srgb, var(--good) 25%, transparent); }
-.status.offline .dot{ background:var(--bad); }
-
-/* ---------- hero ---------- */
-.hero{ position:relative; overflow:hidden; padding:96px 0 64px; }
-.hero .glow{
-  position:absolute; inset:-20% -10% auto -10%; height:640px; z-index:0; pointer-events:none;
-  background: radial-gradient(60% 55% at 50% 20%, color-mix(in srgb, var(--accent) 32%, transparent), transparent 70%);
-  filter: blur(10px);
-}
-.bands{ position:absolute; left:0; right:0; bottom:0; height:220px; z-index:0; pointer-events:none; opacity:.5;
-  mask-image:linear-gradient(to bottom, transparent, black 60%);
-}
-.bands span{ position:absolute; left:0; right:0; height:26px; }
-.hero .inner{ position:relative; z-index:1; max-width:820px; }
-.eyebrow{ font-family:var(--mono); font-size:12px; letter-spacing:.09em; text-transform:uppercase; color:var(--accent-strong); margin-bottom:20px; display:flex; align-items:center; gap:10px; }
-.eyebrow::before{ content:""; width:20px; height:1px; background:var(--accent); }
-.hero h1{ font-size:clamp(34px,5.4vw,58px); line-height:1.08; letter-spacing:-0.02em; margin-bottom:22px; }
-.hero h1 em{ font-style:normal; color:var(--accent-strong); }
-.hero .lede{ font-size:17.5px; color:var(--text-dim); max-width:60ch; margin-bottom:34px; }
-.ctarow{ display:flex; flex-wrap:wrap; gap:12px; margin-bottom:36px; }
-.btn{ font-family:var(--sans); font-weight:600; font-size:14.5px; padding:13px 22px; border-radius:9px; text-decoration:none; display:inline-flex; align-items:center; gap:8px; border:1px solid transparent; cursor:pointer; }
-.btn-primary{ background:linear-gradient(135deg,var(--accent-strong),var(--accent)); color:var(--accent-ink); box-shadow:0 10px 30px -12px color-mix(in srgb, var(--accent) 60%, transparent); }
-.btn-primary:hover{ filter:brightness(1.06); }
-.btn-ghost{ color:var(--text); border-color:var(--border); background:transparent; }
-.btn-ghost:hover{ border-color:var(--accent); color:var(--accent-strong); }
-.stripline{ font-family:var(--mono); font-size:12.5px; color:var(--text-faint); display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-.stripline .sep{ color:var(--border); }
-
-/* ---------- sections ---------- */
-section{ padding:88px 0; border-top:1px solid var(--border); }
-@media (max-width:640px){ section{ padding:60px 0; } }
-.sec-head{ max-width:640px; margin-bottom:48px; }
-.sec-eyebrow{ font-family:var(--mono); font-size:11.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--accent-strong); margin-bottom:12px; }
-.sec-head h2{ font-size:clamp(26px,3.4vw,36px); margin-bottom:14px; letter-spacing:-0.01em; }
-.sec-head p{ font-size:15.5px; }
-
-.grid4{ display:grid; grid-template-columns:repeat(2,1fr); gap:16px; }
-@media (max-width:760px){ .grid4{ grid-template-columns:1fr; } }
-.card{ background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:24px; }
-.card .k{ font-family:var(--mono); font-size:11px; color:var(--accent-strong); text-transform:uppercase; letter-spacing:.06em; margin-bottom:10px; }
-.card h3{ font-size:17px; margin-bottom:10px; }
-.card p{ font-size:14px; }
-
-.twocol{ display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:28px 0; }
-@media (max-width:760px){ .twocol{ grid-template-columns:1fr; } }
-.panel{ border-radius:12px; padding:22px 24px; border:1px solid var(--border); }
-.panel.good{ background:color-mix(in srgb, var(--good) 8%, var(--surface)); border-color:color-mix(in srgb, var(--good) 35%, var(--border)); }
-.panel.bad{ background:color-mix(in srgb, var(--bad) 7%, var(--surface)); border-color:color-mix(in srgb, var(--bad) 30%, var(--border)); }
-.panel h4{ font-family:var(--display); font-size:14.5px; margin-bottom:10px; }
-.panel.good h4{ color:var(--good); }
-.panel.bad h4{ color:var(--bad); }
-.panel p{ font-size:14px; }
-.verdict{ font-size:14.5px; color:var(--text-dim); margin-top:8px; }
-.verdict b{ color:var(--text); }
-
-/* ---------- architecture ---------- */
-.flow{ display:grid; grid-template-columns:repeat(4,1fr); gap:0; align-items:stretch; margin-bottom:36px; }
-@media (max-width:820px){ .flow{ grid-template-columns:1fr; } .flow .arrow{ transform:rotate(90deg); margin:4px auto; } }
-.flowstep{ background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:16px; text-align:center; }
-.flowstep .t{ font-family:var(--mono); font-size:12.5px; color:var(--text); font-weight:600; margin-bottom:4px; }
-.flowstep .d{ font-size:11.5px; color:var(--text-faint); }
-.arrow{ display:flex; align-items:center; justify-content:center; color:var(--text-faint); font-size:18px; }
-.flowrow{ display:flex; align-items:center; gap:8px; margin-bottom:14px; }
-.flowrow .lab{ font-family:var(--mono); font-size:11px; color:var(--text-faint); width:52px; flex:none; text-transform:uppercase; letter-spacing:.05em; }
-
-.roadmap{ display:flex; gap:6px; margin-top:8px; }
-.rstep{ flex:1; border-radius:8px; padding:12px 10px; text-align:center; border:1px solid var(--border); background:var(--surface); }
-.rstep.done{ border-color:color-mix(in srgb, var(--good) 45%, var(--border)); background:color-mix(in srgb, var(--good) 10%, var(--surface)); }
-.rstep .id{ font-family:var(--mono); font-size:12px; font-weight:600; color:var(--text); }
-.rstep.done .id{ color:var(--good); }
-.rstep .lab{ font-size:10.5px; color:var(--text-faint); margin-top:3px; }
-
-/* ---------- playground ---------- */
-.playground{ background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:28px; box-shadow:var(--shadow); }
-.pg-note{ font-size:13px; color:var(--text-faint); margin-bottom:22px; padding:12px 14px; background:var(--surface-2); border-radius:8px; border:1px solid var(--border); }
-.pg-note b{ color:var(--text-dim); }
-.pg-grid{ display:grid; grid-template-columns:1fr 1fr; gap:24px; }
-@media (max-width:880px){ .pg-grid{ grid-template-columns:1fr; } }
-.field{ margin-bottom:14px; }
-.field label{ display:block; font-family:var(--mono); font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-faint); margin-bottom:6px; }
-.field input, .field textarea{
-  width:100%; background:var(--bg); border:1px solid var(--border); border-radius:8px;
-  color:var(--text); font-family:var(--mono); font-size:13.5px; padding:11px 12px; resize:vertical;
-}
-.field input:focus, .field textarea:focus{ outline:2px solid var(--accent); outline-offset:-1px; border-color:var(--accent); }
-.field textarea{ min-height:76px; }
-.btnrow{ display:flex; gap:8px; flex-wrap:wrap; margin-top:18px; }
-.op-btn{ font-family:var(--mono); font-size:12.5px; font-weight:600; padding:10px 16px; border-radius:7px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); cursor:pointer; letter-spacing:.03em; }
-.op-btn:hover{ border-color:var(--accent); color:var(--accent-strong); }
-.op-btn.put{ border-color:color-mix(in srgb, var(--good) 45%, var(--border)); }
-.op-btn.del{ border-color:color-mix(in srgb, var(--bad) 45%, var(--border)); }
-.op-btn.demo{ margin-left:auto; background:transparent; border-style:dashed; color:var(--text-faint); }
-@media (max-width:480px){ .op-btn.demo{ margin-left:0; } }
-
-.resp{ background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:16px; min-height:96px; }
-.resp .line1{ display:flex; align-items:center; gap:10px; margin-bottom:10px; flex-wrap:wrap; }
-.resp .req{ font-family:var(--mono); font-size:12.5px; color:var(--text-dim); }
-.badge{ font-family:var(--mono); font-size:11px; font-weight:600; padding:2px 8px; border-radius:20px; border:1px solid; }
-.badge.s2{ color:var(--good); border-color:color-mix(in srgb, var(--good) 45%, var(--border)); }
-.badge.s4{ color:var(--warn); border-color:color-mix(in srgb, var(--warn) 45%, var(--border)); }
-.badge.s5{ color:var(--bad); border-color:color-mix(in srgb, var(--bad) 45%, var(--border)); }
-.lat{ font-family:var(--mono); font-size:11px; color:var(--text-faint); margin-left:auto; }
-.resp pre{ margin:0; font-family:var(--mono); font-size:12.5px; color:var(--text); white-space:pre-wrap; word-break:break-word; }
-.resp .empty{ color:var(--text-faint); font-size:13px; font-family:var(--sans); }
-
-.log{ margin-top:22px; }
-.log .lh{ font-family:var(--mono); font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-faint); margin-bottom:8px; }
-.logitem{ display:flex; gap:10px; align-items:baseline; font-family:var(--mono); font-size:12px; padding:6px 0; border-bottom:1px solid var(--border); color:var(--text-dim); }
-.logitem:last-child{ border-bottom:none; }
-.logitem .m{ font-weight:700; width:52px; flex:none; }
-.logitem .m.PUT{ color:var(--good); } .logitem .m.GET{ color:var(--accent-strong); } .logitem .m.DELETE{ color:var(--bad); }
-.logitem .k{ color:var(--text); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.logitem .s{ color:var(--text-faint); }
-.logempty{ font-size:12.5px; color:var(--text-faint); font-family:var(--sans); }
-
-/* ---------- footer ---------- */
-footer{ border-top:1px solid var(--border); padding:44px 0; }
-.foot-row{ display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; }
-.footlinks{ display:flex; gap:22px; flex-wrap:wrap; }
-.footlinks a{ font-size:13px; color:var(--text-dim); text-decoration:none; }
-.footlinks a:hover{ color:var(--accent-strong); }
-.foot-tag{ font-family:var(--mono); font-size:12px; color:var(--text-faint); }
-</style>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/site.css">
 </head>
-<body>
+<body data-page="home">
 
 <nav class="top">
   <div class="wrap row">
-    <a class="brand" href="#top">
-      <span class="mark"></span><b>strata</b><span class="phase">A1 / 6</span>
-    </a>
-    <div class="navlinks">
-      <a href="#what">What it is</a>
-      <a href="#how">How it works</a>
-      <a href="#app">Try it live</a>
+    <a class="brand" href="/"><span class="mark"><i></i><i></i><i></i></span><b>strata</b></a>
+    <div class="pagenav">
+      <a href="/" class="active">Home</a>
+      <a href="/architecture">Architecture<span class="tag">B-tree vs LSM</span></a>
+      <a href="/postmortem">Postmortem<span class="tag">real bug</span></a>
+      <a href="/playground">Playground<span class="tag">live</span></a>
+    </div>
+    <div class="navside">
       <span class="status" id="nav-status"><span class="dot"></span><span class="txt">checking</span></span>
-      <a class="cta" href="https://github.com/ramkirangaruda/strata" target="_blank" rel="noopener">GitHub</a>
+      <a class="gh" href="https://github.com/ramkirangaruda/strata" target="_blank" rel="noopener">GitHub</a>
     </div>
   </div>
 </nav>
 
-<div id="top"></div>
 <header class="hero">
-  <div class="glow" aria-hidden="true"></div>
-  <div class="bands" aria-hidden="true">
-    <span style="bottom:0;   background:color-mix(in srgb, var(--accent) 22%, transparent);"></span>
-    <span style="bottom:26px; background:color-mix(in srgb, var(--accent) 14%, transparent);"></span>
-    <span style="bottom:52px; background:color-mix(in srgb, var(--accent) 9%, transparent);"></span>
-    <span style="bottom:78px; background:color-mix(in srgb, var(--accent) 5%, transparent);"></span>
-  </div>
-  <div class="wrap">
-    <div class="inner">
-      <div class="eyebrow">An LSM-tree storage engine, running right here</div>
-      <h1>Kill the process mid-write.<br>Every acknowledged byte <em>still comes back.</em></h1>
-      <p class="lede">strata is a log-structured merge-tree key-value engine, built from scratch in Go — a write-ahead log, sorted string tables with bloom filters, MVCC through sequence numbers, and crash recovery that runs on every open, not only after a crash.</p>
+  <div class="wrap grid">
+    <div>
+      <div class="kicker">An LSM-tree, written from scratch, in Go</div>
+      <h1 id="hero-h1">Every layer remembers.<br>Nothing is <span class="hl">overwritten.</span></h1>
+      <p class="lede">strata is a key-value engine built the way RocksDB and Cassandra are built underneath: a write-ahead log, immutable sorted files, and versions instead of mutation. Zero dependencies. Phase A1 of 6.</p>
       <div class="ctarow">
-        <a href="#app" class="btn btn-primary">Try it live →</a>
-        <a href="https://github.com/ramkirangaruda/strata" target="_blank" rel="noopener" class="btn btn-ghost">View source</a>
+        <a href="/playground" class="btn btn-primary">Try it live →</a>
+        <a href="/postmortem" class="btn btn-ghost">Read the postmortem</a>
       </div>
-      <div class="stripline">
-        <span id="hero-status">● checking API status</span>
-        <span class="sep">·</span><span>phase A1 of 6</span>
-        <span class="sep">·</span><span>zero dependencies</span>
-        <span class="sep">·</span><span>MIT licensed</span>
-      </div>
+    </div>
+    <div class="strata-art" aria-hidden="true">
+      <div class="band mem" style="--i:0"><span class="name">memtable</span><span class="desc">mutable, in-memory</span></div>
+      <div class="band l0" style="--i:1"><span class="name">L0</span><span class="desc">newest flush</span></div>
+      <div class="band l1" style="--i:2"><span class="name">L1</span><span class="desc">older, compacted</span></div>
+      <div class="band l2" style="--i:3"><span class="name">L2</span><span class="desc">older still</span></div>
+      <div class="band wal" style="--i:4"><span class="name">WAL</span><span class="desc">the durable foundation</span></div>
     </div>
   </div>
 </header>
 
+<section>
+  <div class="wrap">
+    <div class="statrow reveal">
+      <div class="stat"><div class="n">0</div><div class="l">runtime dependencies</div></div>
+      <div class="stat"><div class="n">1<span class="u">/6</span></div><div class="l">build phases shipped</div></div>
+      <div class="stat"><div class="n">3</div><div class="l">durability guarantees tested on every open</div></div>
+      <div class="stat"><div class="n">1</div><div class="l"><a href="/postmortem" style="color:inherit;">real Windows bug, fixed →</a></div></div>
+    </div>
+  </div>
+</section>
+
 <section id="what">
   <div class="wrap">
     <div class="sec-head reveal">
-      <div class="sec-eyebrow">01 — What it actually is</div>
-      <h2>Four ideas. Everything else follows from them.</h2>
-      <p>Nothing here is exotic — this is the same shape RocksDB, Cassandra, and every serious time-series database use. What matters is that every piece of it is built and tested from scratch, not imported.</p>
+      <div class="k">What this actually is</div>
+      <h2>A database engine you can read end to end in an afternoon</h2>
     </div>
-    <div class="grid4">
-      <div class="card reveal"><div class="k">Durability</div><h3>Write-ahead log</h3><p>Every write is a sequential append to a log before it touches memory. A failed append leaves no trace behind — which is what makes retrying a write safe.</p></div>
-      <div class="card reveal"><div class="k">Storage</div><h3>Sorted string tables</h3><p>When the in-memory table fills up, it's flushed to an immutable, prefix-compressed file with a bloom filter — written once in a single forward pass, never modified again.</p></div>
-      <div class="card reveal"><div class="k">Consistency</div><h3>MVCC via sequence numbers</h3><p>Every key carries a version. An overwrite or a delete is a new record, never a mutation — which is exactly what lets concurrent reads run with zero locks.</p></div>
-      <div class="card reveal"><div class="k">Recovery</div><h3>Tested by construction</h3><p>Recovery doesn't just run after a crash — it runs on every single open, including a clean one. The path that matters most is the path that's actually exercised.</p></div>
-    </div>
-  </div>
-</section>
-
-<section id="why">
-  <div class="wrap">
-    <div class="sec-head reveal">
-      <div class="sec-eyebrow">02 — The problem it solves</div>
-      <h2>Most databases update records in place. strata never does.</h2>
-      <p>In-place updates are simple until durability meets heavy random writes — every update is a random-access disk write, and if you want it durable, an fsync to match. strata's entire design comes from refusing that trade: an overwrite is a new record, a delete is a new record. Nothing is ever modified where it sits.</p>
-    </div>
-    <div class="twocol">
-      <div class="panel good reveal">
-        <h4>What that buys you</h4>
-        <p>Writes become cheap — one sequential log append, one in-memory insert. Concurrency becomes cheap — nothing a reader is looking at can be mutated out from under it, so readers take zero locks.</p>
+    <div class="cardgrid">
+      <div class="card reveal">
+        <div class="icon">1</div>
+        <h3>The engine</h3>
+        <ul>
+          <li>Write-ahead log — every write is a sequential append before it touches memory</li>
+          <li>Sorted string tables — immutable, prefix-compressed, written once</li>
+          <li>Bloom filters — skip files that provably don't have the key</li>
+          <li>Skiplist memtable — lock-free reads while one writer appends</li>
+        </ul>
       </div>
-      <div class="panel bad reveal">
-        <h4>What it costs you</h4>
-        <p>Reads become more expensive — a key might live in several files, so a lookup can touch more than one. Space becomes more expensive — old versions and tombstones sit on disk until compaction reclaims them.</p>
+      <div class="card reveal">
+        <div class="icon">2</div>
+        <h3>The guarantees</h3>
+        <ul>
+          <li>MVCC via sequence numbers — an overwrite is a new record, never a mutation</li>
+          <li>Crash recovery runs on <b style="color:var(--text)">every</b> open, not just after a kill -9</li>
+          <li>Six ordering rules make torn writes recoverable — see <code>DESIGN.md §2</code></li>
+          <li>Concurrent readers take zero locks against immutable files</li>
+        </ul>
       </div>
-    </div>
-    <p class="verdict reveal">Right shape when writes dominate and you want random writes turned sequential on the device — <b>the exact workload this demo below generates.</b> Wrong shape when you need bounded read latency with zero tuning; a B-tree wins there.</p>
-  </div>
-</section>
-
-<section id="how">
-  <div class="wrap">
-    <div class="sec-head reveal">
-      <div class="sec-eyebrow">03 — How it works</div>
-      <h2>The write path and the read path</h2>
-      <p>Every write lands in the log before the memtable, so a crash between the two never loses an acknowledged write. Every read checks memory first, then files newest-to-oldest, stopping at the first version it finds.</p>
-    </div>
-
-    <div class="reveal">
-      <div class="flowrow"><div class="lab">write</div></div>
-      <div class="flow" style="margin-bottom:28px;">
-        <div class="flowstep"><div class="t">WAL append</div><div class="d">fsync, optional</div></div>
-        <div class="arrow">→</div>
-        <div class="flowstep"><div class="t">memtable insert</div><div class="d">lock-free reads</div></div>
-        <div class="arrow">→</div>
-        <div class="flowstep"><div class="t">flush at threshold</div><div class="d">one forward pass</div></div>
-        <div class="arrow">→</div>
-        <div class="flowstep"><div class="t">immutable L0 file</div><div class="d">bloom + index</div></div>
-      </div>
-      <div class="flowrow"><div class="lab">read</div></div>
-      <div class="flow">
-        <div class="flowstep"><div class="t">memtable</div><div class="d">check first</div></div>
-        <div class="arrow">→</div>
-        <div class="flowstep"><div class="t">L0, newest first</div><div class="d">every overlap</div></div>
-        <div class="arrow">→</div>
-        <div class="flowstep"><div class="t">bloom filter</div><div class="d">skip on "definitely not"</div></div>
-        <div class="arrow">→</div>
-        <div class="flowstep"><div class="t">answer</div><div class="d">or ErrNotFound</div></div>
-      </div>
-    </div>
-
-    <div class="reveal" style="margin-top:44px;">
-      <div class="sec-eyebrow" style="margin-bottom:14px;">Build roadmap</div>
-      <div class="roadmap">
-        <div class="rstep done"><div class="id">A1</div><div class="lab">write path</div></div>
-        <div class="rstep"><div class="id">A2</div><div class="lab">block cache</div></div>
-        <div class="rstep"><div class="id">A3</div><div class="lab">compaction</div></div>
-        <div class="rstep"><div class="id">A4</div><div class="lab">transactions</div></div>
-        <div class="rstep"><div class="id">A5</div><div class="lab">fault injection</div></div>
-        <div class="rstep"><div class="id">A6</div><div class="lab">benchmarks</div></div>
+      <div class="card reveal">
+        <div class="icon">3</div>
+        <h3>This website</h3>
+        <ul>
+          <li>Served by <code>cmd/server</code> — a ~90-line HTTP wrapper around the engine</li>
+          <li><code>GET/PUT/DELETE /kv/{key}</code>, nothing more, nothing hidden</li>
+          <li>The playground on this site hits that real API, live</li>
+          <li>MIT licensed, buildable with <code>go build ./...</code></li>
+        </ul>
       </div>
     </div>
   </div>
 </section>
 
-<section id="app">
+<section id="explore">
   <div class="wrap">
     <div class="sec-head reveal">
-      <div class="sec-eyebrow">04 — Try it live</div>
-      <h2>This isn't a mockup.</h2>
-      <p>Every request below hits the actual engine running on this deployment — a real write-ahead log, a real memtable, real bytes landing on disk.</p>
+      <div class="k">Go deeper</div>
+      <h2>Three pages, three different things</h2>
     </div>
-
-    <div class="playground reveal">
-      <div class="pg-note" id="pg-note">
-        <b>Heads up:</b> on serverless platforms like Vercel, this storage lives in an ephemeral <code>/tmp</code> and can reset between requests or on redeploy. Running locally or via Docker, it's the real, persistent thing. <a href="https://github.com/ramkirangaruda/strata/blob/main/docs/DEPLOYMENT.md" target="_blank" rel="noopener" style="color:var(--accent-strong);">Details →</a>
-      </div>
-
-      <div class="pg-grid">
-        <div>
-          <div class="field">
-            <label for="pg-key">Key</label>
-            <input id="pg-key" type="text" value="hello" spellcheck="false" autocomplete="off">
-          </div>
-          <div class="field">
-            <label for="pg-val">Value (used by PUT)</label>
-            <textarea id="pg-val" spellcheck="false">world</textarea>
-          </div>
-          <div class="btnrow">
-            <button class="op-btn put" data-op="PUT">PUT</button>
-            <button class="op-btn" data-op="GET">GET</button>
-            <button class="op-btn del" data-op="DELETE">DELETE</button>
-            <button class="op-btn demo" id="pg-demo" type="button">▶ run a quick demo</button>
-          </div>
-        </div>
-
-        <div>
-          <div class="resp" id="pg-resp">
-            <div class="empty">Run an operation to see the real request and response here.</div>
-          </div>
-          <div class="log">
-            <div class="lh">Session log</div>
-            <div id="pg-log"><div class="logempty">Nothing yet — this session's log lives only in your browser.</div></div>
-          </div>
-        </div>
-      </div>
+    <div class="cardgrid">
+      <a href="/architecture" class="card reveal" style="text-decoration:none; --accent:var(--coral);">
+        <div class="icon" style="background:color-mix(in srgb, var(--coral) 16%, transparent); color:var(--coral);">VS</div>
+        <h3>B-tree vs LSM-tree</h3>
+        <p>The one tradeoff that explains every design decision in this repo — write cost, read cost, and where the space goes.</p>
+      </a>
+      <a href="/postmortem" class="card reveal" style="text-decoration:none; --accent:var(--coral);">
+        <div class="icon" style="background:color-mix(in srgb, var(--coral) 16%, transparent); color:var(--coral);">!</div>
+        <h3>The bug that broke every Open()</h3>
+        <p>A real incident: <code>sync data: Access is denied</code> on Windows, the root cause, and the 16-line fix — with the actual diff.</p>
+      </a>
+      <a href="/playground" class="card reveal">
+        <div class="icon">▶</div>
+        <h3>Try it live</h3>
+        <p>PUT, GET, DELETE against the real engine running this page, with the write and read paths animated as they happen.</p>
+      </a>
     </div>
   </div>
 </section>
@@ -383,116 +138,11 @@ footer{ border-top:1px solid var(--border); padding:44px 0; }
   </div>
 </footer>
 
+<script src="/static/site.js"></script>
 <script>
-(function(){
-  "use strict";
-
-  // ---- scroll reveal ----
-  var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  var els = document.querySelectorAll(".reveal");
-  if (reduced || !("IntersectionObserver" in window)) {
-    els.forEach(function(e){ e.classList.add("in"); });
-  } else {
-    var io = new IntersectionObserver(function(entries){
-      entries.forEach(function(en){ if (en.isIntersecting){ en.target.classList.add("in"); io.unobserve(en.target); } });
-    }, {threshold:0.12});
-    els.forEach(function(e){ io.observe(e); });
-  }
-
-  // ---- health check ----
-  function setStatus(online){
-    var nav = document.getElementById("nav-status");
-    var hero = document.getElementById("hero-status");
-    if (online === null) {
-      nav.className = "status"; nav.querySelector(".txt").textContent = "checking";
-      hero.textContent = "● checking API status";
-      return;
-    }
-    nav.className = "status " + (online ? "online" : "offline");
-    nav.querySelector(".txt").textContent = online ? "API online" : "API offline";
-    hero.textContent = (online ? "● API online" : "● API offline") + " — this page is served by it";
-  }
-  setStatus(null);
-  fetch("/healthz").then(function(r){ setStatus(r.ok); }).catch(function(){ setStatus(false); });
-
-  // ---- playground ----
-  var keyEl = document.getElementById("pg-key");
-  var valEl = document.getElementById("pg-val");
-  var respEl = document.getElementById("pg-resp");
-  var logEl = document.getElementById("pg-log");
-  var logEntries = [];
-
-  function badgeClass(status){
-    if (status >= 200 && status < 300) return "s2";
-    if (status >= 400 && status < 500) return "s4";
-    return "s5";
-  }
-
-  function renderResponse(method, path, status, ms, bodyText, isJSON){
-    var badge = '<span class="badge ' + badgeClass(status) + '">' + status + '</span>';
-    var body = bodyText && bodyText.length ? bodyText : "(empty body)";
-    if (isJSON) {
-      try { body = JSON.stringify(JSON.parse(bodyText), null, 2); } catch(e) {}
-    }
-    respEl.innerHTML =
-      '<div class="line1"><span class="req">' + method + ' ' + path + '</span>' + badge +
-      '<span class="lat">' + ms + ' ms</span></div>' +
-      '<pre>' + body.replace(/&/g,"&amp;").replace(/</g,"&lt;") + '</pre>';
-  }
-
-  function pushLog(method, key, status){
-    logEntries.unshift({method:method, key:key, status:status, t:new Date()});
-    logEntries = logEntries.slice(0, 25);
-    logEl.innerHTML = logEntries.map(function(e){
-      var hh = e.t.toTimeString().slice(0,8);
-      return '<div class="logitem"><span class="m ' + e.method + '">' + e.method + '</span>' +
-        '<span class="k">' + e.key.replace(/&/g,"&amp;").replace(/</g,"&lt;") + '</span>' +
-        '<span class="s">' + e.status + ' · ' + hh + '</span></div>';
-    }).join("");
-  }
-
-  function run(method){
-    var key = keyEl.value.trim();
-    if (!key) { keyEl.focus(); return Promise.resolve(); }
-    var path = "/kv/" + encodeURIComponent(key);
-    var opts = { method: method };
-    if (method === "PUT") opts.body = valEl.value;
-    var start = performance.now();
-    return fetch(path, opts).then(function(r){
-      var ms = Math.round(performance.now() - start);
-      var ct = r.headers.get("content-type") || "";
-      return r.text().then(function(text){
-        renderResponse(method, path, r.status, ms, text, ct.indexOf("json") !== -1);
-        pushLog(method, key, r.status);
-        return r.status;
-      });
-    }).catch(function(err){
-      var ms = Math.round(performance.now() - start);
-      renderResponse(method, path, 0, ms, "request failed: " + err, false);
-      pushLog(method, key, "ERR");
-    });
-  }
-
-  document.querySelectorAll(".op-btn[data-op]").forEach(function(btn){
-    btn.addEventListener("click", function(){ run(btn.getAttribute("data-op")); });
-  });
-
-  document.getElementById("pg-demo").addEventListener("click", function(){
-    var demoKey = "demo-" + Math.floor(Math.random()*100000);
-    keyEl.value = demoKey;
-    valEl.value = "hello from the live demo";
-    var btn = this;
-    btn.disabled = true; btn.textContent = "running…";
-    run("PUT")
-      .then(function(){ return new Promise(function(res){ setTimeout(res, 500); }); })
-      .then(function(){ return run("GET"); })
-      .then(function(){ return new Promise(function(res){ setTimeout(res, 500); }); })
-      .then(function(){ return run("DELETE"); })
-      .then(function(){ return new Promise(function(res){ setTimeout(res, 400); }); })
-      .then(function(){ return run("GET"); })
-      .then(function(){ btn.disabled = false; btn.textContent = "▶ run a quick demo"; });
-  });
-})();
+  Site.initReveal("#hero-h1");
+  Site.initSpotlight(".card");
+  Site.initScrollReveal();
 </script>
 </body>
 </html>

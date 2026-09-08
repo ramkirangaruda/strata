@@ -90,6 +90,41 @@ func TestHome(t *testing.T) {
 	}
 }
 
+func TestOtherPages(t *testing.T) {
+	h := testServer(t).routes()
+	for _, path := range []string{"/architecture", "/postmortem", "/playground"} {
+		rec := do(t, h, http.MethodGet, path, "")
+		if rec.Code != http.StatusOK {
+			t.Fatalf("GET %s: status = %d, want 200", path, rec.Code)
+		}
+		if ct := rec.Header().Get("Content-Type"); !strings.Contains(ct, "text/html") {
+			t.Fatalf("GET %s: Content-Type = %q, want text/html", path, ct)
+		}
+		if !strings.Contains(rec.Body.String(), "<title>") {
+			t.Fatalf("GET %s: response does not look like an embedded page", path)
+		}
+	}
+}
+
+func TestStaticAssets(t *testing.T) {
+	h := testServer(t).routes()
+	for _, tc := range []struct {
+		path string
+		ct   string
+	}{
+		{"/static/site.css", "text/css"},
+		{"/static/site.js", "javascript"},
+	} {
+		rec := do(t, h, http.MethodGet, tc.path, "")
+		if rec.Code != http.StatusOK {
+			t.Fatalf("GET %s: status = %d, want 200", tc.path, rec.Code)
+		}
+		if ct := rec.Header().Get("Content-Type"); !strings.Contains(ct, tc.ct) {
+			t.Fatalf("GET %s: Content-Type = %q, want to contain %q", tc.path, ct, tc.ct)
+		}
+	}
+}
+
 func TestAPIInfo(t *testing.T) {
 	h := testServer(t).routes()
 	rec := do(t, h, http.MethodGet, "/api", "")
